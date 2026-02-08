@@ -3,14 +3,15 @@
 # =============================================================================
 
 ARG CUDA_VERSION=12.8
+ARG TORCH_VERSION=2.5.1
+ARG TORCH_CUDA=cu128
 ARG BASE_IMAGE=runtime
-ARG TORCH_CUDA=cu124
 
 # =============================================================================
-# Base image (CUDA runtime or devel)
+# Base image (CUDA runtime)
 # =============================================================================
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-${BASE_IMAGE}-ubuntu22.04
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04
 
 # =============================================================================
 # Environment
@@ -20,6 +21,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV PATH=/usr/local/bin:$PATH
+
+# Export build-time versions for reference/logging
+ENV CUDA_VERSION=${CUDA_VERSION}
+ENV TORCH_VERSION=${TORCH_VERSION}
+ENV TORCH_CUDA=${TORCH_CUDA}
 
 # =============================================================================
 # System dependencies
@@ -69,19 +75,21 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 && \
     pip install --upgrade pip
 
 # =============================================================================
-# PyTorch (CUDA-compatible)
+# PyTorch (CUDA-compatible, pinned versions)
 # =============================================================================
 
 ARG TORCH_CUDA
-RUN pip install \
-    torch torchvision torchaudio \
+RUN pip install --no-cache-dir \
+    torch==${TORCH_VERSION}+${TORCH_CUDA} \
+    torchvision==${TORCH_VERSION}+${TORCH_CUDA} \
+    torchaudio==${TORCH_VERSION}+${TORCH_CUDA} \
     --index-url https://download.pytorch.org/whl/${TORCH_CUDA}
 
 # =============================================================================
 # Jupyter
 # =============================================================================
 
-RUN pip install jupyter jupyterlab
+RUN pip install --no-cache-dir jupyter jupyterlab
 
 # =============================================================================
 # FileBrowser

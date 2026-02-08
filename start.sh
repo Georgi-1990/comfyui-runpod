@@ -13,7 +13,9 @@ LOG_DIR="${WORKSPACE}/logs"
 COMFY_REPO="https://github.com/comfyanonymous/ComfyUI.git"
 COMFY_BRANCH="${COMFY_BRANCH:-master}"
 COMFY_UPDATE="${COMFY_UPDATE:-false}"
-CUSTOM_NODES="${CUSTOM_NODES:-}"
+
+# Default custom nodes if not provided
+CUSTOM_NODES="${CUSTOM_NODES:-manager,kjnodes,civicomfy}"
 
 mkdir -p "${LOG_DIR}"
 
@@ -60,13 +62,15 @@ log "Installing ComfyUI requirements..."
 pip install --no-cache-dir -r "${COMFYUI_DIR}/requirements.txt"
 
 # =============================================================================
-# Custom nodes registry
+# Custom nodes registry (N4 canonical)
 # =============================================================================
 
 declare -A NODE_REPOS=(
-  [manager]="https://github.com/ltdrdata/ComfyUI-Manager.git"
-  [impact-pack]="https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
-  [controlnet]="https://github.com/Fannovel16/comfyui_controlnet_aux.git"
+  ["manager"]="https://github.com/ltdrdata/ComfyUI-Manager.git"
+  ["impact-pack"]="https://github.com/ltdrdata/ComfyUI-Impact-Pack.git"
+  ["controlnet"]="https://github.com/Fannovel16/comfyui_controlnet_aux.git"
+  ["kjnodes"]="https://github.com/kijai/ComfyUI-KJNodes.git"
+  ["civicomfy"]="https://github.com/MoonGoblinDev/Civicomfy.git"
 )
 
 mkdir -p "${CUSTOM_NODES_DIR}"
@@ -75,45 +79,57 @@ mkdir -p "${CUSTOM_NODES_DIR}"
 # Install / update custom nodes
 # =============================================================================
 
-if [ -n "${CUSTOM_NODES}" ]; then
-  IFS=',' read -ra NODES <<< "${CUSTOM_NODES}"
+IFS=',' read -ra NODES <<< "${CUSTOM_NODES}"
 
-  for node in "${NODES[@]}"; do
-    repo="${NODE_REPOS[$node]:-}"
+for node in "${NODES[@]}"; do
+  repo="${NODE_REPOS[$node]:-}"
 
-    if [ -z "${repo}" ]; then
-      log "WARNING: Unknown custom node key: ${node}"
-      continue
-    fi
+  if [ -z "${repo}" ]; then
+    log "WARNING: Unknown custom node alias: ${node}"
+    continue
+  fi
 
-    target="${CUSTOM_NODES_DIR}/$(basename "${repo}" .git)"
+  target="${CUSTOM_NODES_DIR}/$(basename "${repo}" .git)"
 
-    if [ ! -d "${target}" ]; then
-      log "Cloning custom node: ${node}"
-      git clone "${repo}" "${target}"
-    elif [ "${COMFY_UPDATE}" = "true" ]; then
-      log "Updating custom node: ${node}"
-      cd "${target}"
-      git pull
-    fi
+  if [ ! -d "${target}" ]; then
+    log "Cloning custom node: ${node}"
+    git clone "${repo}" "${target}"
+  elif [ "${COMFY_UPDATE}" = "true" ]; then
+    log "Updating custom node: ${node}"
+    cd "${target}"
+    git pull
+  fi
+done
 
-    # Install node dependencies (best-effort)
-    if [ -f "${target}/requirements.txt" ]; then
-      log "Installing requirements for ${node}"
-      pip install --no-cache-dir -r "${target}/requirements.txt" || true
-    fi
+# =============================================================================
+# Install dependencies for all custom nodes (unified pass)
+# =============================================================================
 
-    if [ -f "${target}/install.py" ]; then
-      log "Running install.py for ${node}"
-      python3 "${target}/install.py" || true
-    fi
+log "Installing custom node dependencies..."
 
-    if [ -f "${target}/setup.py" ]; then
-      log "Installing setup.py for ${node}"
-      pip install --no-cache-dir -e "${target}" || true
-    fi
-  done
-fi
+cd "${CUSTOM_NODES_DIR}"
+
+for dir in */; do
+  [ -d "${dir}" ] || continue
+  log "Processing ${dir}"
+
+  cd "${CUSTOM_NODES_DIR}/${dir}"
+
+  if [ -f "requirements.txt" ]; then
+    log "  Installing requirements.txt"
+    pip install --no-cache-dir -r requirements.txt || true
+  fi
+
+  if [ -f "install.py" ]; then
+    log "  Running install.py"
+    python3 install.py || true
+  fi
+
+  if [ -f "setup.py" ]; then
+    log "  Installing setup.py (editable)"
+    pip install --no-cache-dir -e . || true
+  fi
+done
 
 # =============================================================================
 # Start ComfyUI

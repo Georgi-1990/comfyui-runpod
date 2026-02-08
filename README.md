@@ -1,10 +1,5 @@
+# ComfyUI RunPod Template
 Run the latest ComfyUI on RunPod with CUDA acceleration.
-On first start, ComfyUI and optional custom nodes are installed into the persistent /workspace volume.
-Subsequent starts are fast and reuse the existing installation.
-
-When you see the following message in logs, ComfyUI is ready:
-[ComfyUI-Manager] All startup tasks have been completed.
-
 
 ## Access
 
@@ -19,40 +14,52 @@ When you see the following message in logs, ComfyUI is ready:
 ## Environment Variables
 These variables control the behavior of the template:
 
-| Variable           | Default   | Description                                     |
-| ------------------ | --------- | ----------------------------------------------- |
-| `COMFY_UPDATE`     | `false`   | Update ComfyUI and custom nodes on startup      |
-| `CUSTOM_NODES`     | *(empty)* | Comma-separated list of custom nodes to install |
-| `JUPYTER_PASSWORD` | *(empty)* | Token for JupyterLab                            |
-| `PUBLIC_KEY`       | *(empty)* | SSH public key for root login                   |
+Core Variables
+| Variable           | Default   | Required | Description                          |
+| ------------------ | --------- | -------- | ------------------------------------ |
+| `PUBLIC_KEY`       | *(empty)* | No       | SSH public key for root access       |
+| `JUPYTER_PASSWORD` | *(empty)* | No       | Token for JupyterLab access          |
+| `COMFY_UPDATE`     | `true`    | No       | Update ComfyUI repository on startup |
 
 
-## Example
+## Custom Nodes
+
+This template supports automatic installation of ComfyUI custom nodes 
+via environment variables.
+
+Example:
 COMFY_UPDATE=true
 CUSTOM_NODES=manager,impact-pack,controlnet
 
+**Available Nodes**
 
-## Supported Custom Nodes
-The following node keys are supported out of the box:
+| Alias          | Repository |
+|---------------|------------|
+| `manager`     | ComfyUI-Manager |
+| `impact-pack` | ComfyUI-Impact-Pack |
+| `controlnet`  | ComfyUI-ControlNet |
+| `kjnodes`     | ComfyUI-KJNodes |
+| `civicomfy`   | Civicomfy |
 
-| Key           | Repository                        |
-| ------------- | --------------------------------- |
-| `manager`     | ltdrdata/ComfyUI-Manager          |
-| `impact-pack` | ltdrdata/ComfyUI-Impact-Pack      |
-| `controlnet`  | Fannovel16/comfyui_controlnet_aux |
 
-Custom nodes are installed into:
-/workspace/ComfyUI/custom_nodes
+## COMFY_UPDATE
+When `COMFY_UPDATE=true`:
 
-## Custom ComfyUI Arguments
-You can pass additional arguments to ComfyUI via:
-/workspace/comfyui_args.txt
+- `git pull` is executed for the ComfyUI repository
+- `git pull` is executed for all installed custom nodes
+- Python dependencies are reinstalled if required
 
-One argument per line, for example:
---max-batch-size 8
---preview-method auto
+When `COMFY_UPDATE=false` (default):
 
-These arguments are automatically appended on startup.
+- ComfyUI is cloned only once (on first start)
+- Custom nodes are cloned only if missing
+- No repository updates are performed
+
+## CUDA / PyTorch Versioning
+CUDA_VERSION=12.8
+TORCH_VERSION=2.5.1
+TORCH_CUDA=cu128
+
 
 ## Directory Structure
 /workspace
@@ -63,25 +70,12 @@ These arguments are automatically appended on startup.
 ├── comfyui_args.txt
 └── logs/
 
-All data in /workspace is persistent across pod restarts.
-
-## CUDA & PyTorch
-* CUDA version is defined at build time (CUDA_VERSION)
-* PyTorch is installed with a compatible CUDA build
-* GPU availability and versions are logged on startup
-
-Check logs for:
-
-Torch version
-CUDA available
-CUDA runtime
-GPU name
 
 ## Source Code
 This template is open source.
 Repository: (replace with your repo URL)
 
-## Notes
+Notes
 * First startup may take several minutes due to dependency installation
 * Updating ComfyUI on every start is optional and controlled via COMFY_UPDATE
 * Designed for RunPod Pods (not Serverless)
